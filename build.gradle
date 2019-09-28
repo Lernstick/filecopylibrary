@@ -13,3 +13,9 @@ task sortStrings(type:Exec) {
 	description = 'Sorts the strings in the properties files.'
 	commandLine 'sh', 'sort_strings.sh'
 }
+
+task checkStrings(type:Exec) {
+	group = 'Tools'
+	description = 'Checks the strings in the properties files.'
+	commandLine 'sh', 'check_strings.sh'
+}

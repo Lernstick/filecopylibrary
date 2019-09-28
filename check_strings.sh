@@ -1,8 +1,8 @@
 #!/bin/sh
-for BUNDLE in src/ch/fhnw/filecopier/Strings*
+for BUNDLE in src/main/resources/ch/fhnw/filecopier/Strings*
 do
 	echo "processing bundle ${BUNDLE}"
-	while read LINE
+	while read LINE || [ -n "$LINE" ]
 	do
 		KEY=$(echo ${LINE} | awk -F= '{ print $1 }')
 		find -name "*.java" | xargs grep -q "\"${KEY}\""
