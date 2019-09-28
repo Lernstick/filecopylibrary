@@ -13,10 +13,10 @@ public class ChangeLabel extends JLabel {
     private boolean fresh = true;
 
     public void setDataVolume(long dataVolume) {
-        LOGGER.log(Level.INFO, "previousDataVolume: {0}, dataVolume: {1}",
+        LOGGER.log(Level.FINE, "previousDataVolume: {0}, dataVolume: {1}",
                 new Object[]{previousDataVolume, dataVolume});
         if ((previousDataVolume == dataVolume) && !fresh) {
-            LOGGER.info("previousDataVolume == dataVolume");
+            LOGGER.fine("previousDataVolume == dataVolume");
             return;
         }
         fresh = false;
@@ -27,29 +27,29 @@ public class ChangeLabel extends JLabel {
         double newOrder = Math.floor(Math.log10(dataVolume));
         double previousOrder = Math.floor(Math.log10(previousDataVolume));
         if (newOrder == previousOrder) {
-            LOGGER.log(Level.INFO,
+            LOGGER.log(Level.FINE,
                     "order of magnitude of both values: {0}", newOrder);
             // compare integer values
             int previousInt = getSubKiloInt(previousDataVolume);
             int newInt = getSubKiloInt(dataVolume);
             if (previousInt == newInt) {
-                LOGGER.log(Level.INFO,
-                        "inter of both values: {0}", newInt);
+                LOGGER.log(Level.FINE,
+                        "integer of both values: {0}", newInt);
                 // both values have the same order of magnitude and the same
                 // integer value -> use as much fraction digits as necessary
                 // to create a visible change
                 String previousText = getText();
-                LOGGER.log(Level.INFO, "previous text: \"{0}\"", previousText);
+                LOGGER.log(Level.FINE, "previous text: \"{0}\"", previousText);
                 for (int i = previousFractionDigits; i < 4; i++) {
                     newText = FileCopierPanel.getDataVolumeString(
                             dataVolume, i);
-                    LOGGER.log(Level.INFO,
+                    LOGGER.log(Level.FINE,
                             "new text with {0} fraction digits: \"{1}\"",
                             new Object[]{i, newText});
                     if (previousText.equals(newText)) {
-                        LOGGER.info("both texts were equal");
+                        LOGGER.fine("both texts were equal");
                     } else {
-                        LOGGER.info("there was a visible change");
+                        LOGGER.fine("there was a visible change");
                         previousFractionDigits = i;
                         break;
                     }
@@ -58,7 +58,7 @@ public class ChangeLabel extends JLabel {
                 previousFractionDigits = 0;
             }
         } else {
-            LOGGER.log(Level.INFO,
+            LOGGER.log(Level.FINE,
                     "order of magnitude differs, "
                     + "previousOrder == {0}, newOrder == {1} -> no digits",
                     new Object[]{previousOrder, newOrder});

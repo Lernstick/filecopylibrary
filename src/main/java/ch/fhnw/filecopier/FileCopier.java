@@ -100,8 +100,21 @@ public class FileCopier {
     private long slice = 1048576; // 1 MiB
     private long transferVolume;
     private long sliceStartTime;
+
+    private final ExecutorService executorService;
+    private final ExecutorCompletionService<Void> completionService;
+    private final BarrierAction barrierAction;
     private CyclicBarrier barrier;
-    private final BarrierAction barrierAction = new BarrierAction();
+
+    /**
+     * creates a new FileCopier
+     */
+    public FileCopier() {
+        this.executorService = Executors.newCachedThreadPool();
+        this.completionService
+                = new ExecutorCompletionService<>(executorService);
+        this.barrierAction = new BarrierAction();
+    }
 
     /**
      * Add a listener for property changes.
@@ -431,9 +444,9 @@ public class FileCopier {
         // some initial logging
         if (LOGGER.isLoggable(Level.INFO)) {
             StringBuilder stringBuilder = new StringBuilder();
-            stringBuilder.append("Copying file \"");
+            stringBuilder.append("Copying file\n");
             stringBuilder.append(source.toString());
-            stringBuilder.append("\" to the following destinations:\n");
+            stringBuilder.append("\nto the following destinations:\n");
             for (int i = 0, length = destinations.length; i < length; i++) {
                 stringBuilder.append(destinations[i].getPath());
                 if (i != length - 1) {
@@ -443,23 +456,31 @@ public class FileCopier {
             LOGGER.info(stringBuilder.toString());
         }
 
-        // ensure that all destination files exist before starting the transfer
-        // processing
+        // ensure that the directory path exist before starting the transfer
         for (File destination : destinations) {
             if (!destination.exists()) {
                 destination.getParentFile().mkdirs();
-                destination.createNewFile();
+                // !!! DON'T create the file itself here !!!
+                // We tried both variants below and they are both (equally)
+                // HORRIBLY slow:
+                // destination.createNewFile();
+                // Files.createFile(destination.toPath());
             }
         }
+
+        int destinationCount = destinations.length;
 
         // quick return when source is an empty file
         sourceLength = source.length();
         if (sourceLength == 0) {
+            for (int i = 0; i < destinationCount; i++) {
+                // create empty destination files
+                new FileOutputStream(destinations[i]);
+            }
             return;
         }
 
         // create a Transferrer thread for every destination
-        int destinationCount = destinations.length;
         final Transferrer[] transferrers = new Transferrer[destinationCount];
         for (int i = 0; i < destinationCount; i++) {
             transferrers[i] = new Transferrer(
@@ -482,9 +503,6 @@ public class FileCopier {
         }
         sliceStartTime = System.currentTimeMillis();
 
-        ExecutorService executorService = Executors.newCachedThreadPool();
-        ExecutorCompletionService<Void> completionService
-                = new ExecutorCompletionService<>(executorService);
         for (Transferrer transferrer : transferrers) {
             completionService.submit(transferrer, null);
         }
@@ -497,7 +515,6 @@ public class FileCopier {
                 LOGGER.log(Level.SEVERE, null, ex);
             }
         }
-        executorService.shutdown();
     }
 
     private class BarrierAction implements Runnable {
@@ -567,7 +584,7 @@ public class FileCopier {
 
         @Override
         public void run() {
-            try {
+            try (sourceChannel; destinationChannel) {
                 long myPosition = 0;
                 while (myPosition < sourceLength) {
                     // transfer the currently planned volume
@@ -594,23 +611,10 @@ public class FileCopier {
                     // wait for all other Transferrers to finish their slice
                     barrier.await();
                 }
-            } catch (IOException ex) {
+
+            } catch (IOException | InterruptedException
+                    | BrokenBarrierException ex) {
                 LOGGER.log(Level.SEVERE, "could not transfer data", ex);
-            } catch (InterruptedException | BrokenBarrierException ex) {
-                LOGGER.log(Level.SEVERE, null, ex);
-            } finally {
-                try {
-                    sourceChannel.close();
-                } catch (IOException ex) {
-                    LOGGER.log(Level.SEVERE,
-                            "could not close destination channel", ex);
-                }
-                try {
-                    destinationChannel.close();
-                } catch (IOException ex) {
-                    LOGGER.log(Level.SEVERE,
-                            "could not close destination channel", ex);
-                }
             }
         }
     }

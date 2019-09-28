@@ -31,12 +31,13 @@ import static org.junit.Assert.*;
 
 /**
  * Some tests for the file copier
+ *
  * @author Ronny Standtke <Ronny.Standtke@gmx.net>
  */
 public class OverwriteSingleFileTest {
 
-    private final File tmpDir = new File(System.getProperty("java.io.tmpdir") +
-            File.separatorChar + "filecopiertest");
+    private final File tmpDir = new File(System.getProperty("java.io.tmpdir")
+            + File.separatorChar + "filecopiertest");
     private FileCopier fileCopier;
     private File sourceDir;
     private File destinationDir;
@@ -62,6 +63,7 @@ public class OverwriteSingleFileTest {
 
     /**
      * test, if we correctly overwrite a single file
+     *
      * @throws Exception if an exception occurs
      */
     @Test
@@ -88,20 +90,20 @@ public class OverwriteSingleFileTest {
             }
 
             // create a single destination file
-            File existingDestinationFile =
-                    new File(destinationDir, "existingFile");
+            File existingDestinationFile
+                    = new File(destinationDir, "existingFile");
             try {
                 if (!existingDestinationFile.createNewFile()) {
-                    fail("could not create test file " +
-                            existingDestinationFile);
+                    fail("could not create test file "
+                            + existingDestinationFile);
                 }
                 FileWriter fileWriter = new FileWriter(existingDestinationFile);
                 fileWriter.write("something completely different");
                 fileWriter.flush();
                 fileWriter.close();
             } catch (IOException ex) {
-                System.out.println("Could not create " +
-                        existingDestinationFile);
+                System.out.println("Could not create "
+                        + existingDestinationFile);
                 throw ex;
             }
 
@@ -123,15 +125,15 @@ public class OverwriteSingleFileTest {
             assertTrue("the file was not copied", content.equals(line));
 
         } finally {
-            if ((singleFile != null) &&
-                    singleFile.exists() && !singleFile.delete()) {
+            if ((singleFile != null)
+                    && singleFile.exists() && !singleFile.delete()) {
                 fail("could not delete source file " + singleFile);
             }
             if (!sourceDir.delete()) {
                 fail("could not delete source dir " + sourceDir);
             }
-            if ((expected != null) &&
-                    expected.exists() && !expected.delete()) {
+            if ((expected != null)
+                    && expected.exists() && !expected.delete()) {
                 fail("could not delete destination file " + expected);
             }
             if (!destinationDir.delete()) {
