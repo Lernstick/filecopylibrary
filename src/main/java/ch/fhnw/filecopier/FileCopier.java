@@ -84,17 +84,17 @@ public class FileCopier {
         END
     }
     private State state = State.START;
-    private final static Logger LOGGER =
-            Logger.getLogger(FileCopier.class.getName());
+    private final static Logger LOGGER
+            = Logger.getLogger(FileCopier.class.getName());
     // the copy intervall we want to get in ms
     private static final int WANTED_TIME = 1000;
-    private final PropertyChangeSupport propertyChangeSupport =
-            new PropertyChangeSupport(this);
+    private final PropertyChangeSupport propertyChangeSupport
+            = new PropertyChangeSupport(this);
     private long byteCount;
     private long oldCopiedBytes;
     private long copiedBytes;
-    private final static NumberFormat NUMBER_FORMAT =
-            NumberFormat.getInstance();
+    private final static NumberFormat NUMBER_FORMAT
+            = NumberFormat.getInstance();
     private long position;
     private long sourceLength;
     private long slice = 1048576; // 1 MiB
@@ -203,8 +203,8 @@ public class FileCopier {
             }
             copyJob.setDirectoryInfos(directoryInfos);
             if (LOGGER.isLoggable(Level.INFO)) {
-                StringBuilder stringBuilder =
-                        new StringBuilder("source files:\n");
+                StringBuilder stringBuilder
+                        = new StringBuilder("source files:\n");
                 for (DirectoryInfo directoryInfo : directoryInfos) {
                     stringBuilder.append("source files in base directory ");
                     stringBuilder.append(directoryInfo.getBaseDirectory());
@@ -246,8 +246,8 @@ public class FileCopier {
                 File destinationFile = new File(destination);
                 if (destinationFile.isFile()) {
                     if (sourceCount == 1) {
-                        File sourceFile =
-                                directoryInfos.get(0).getFiles().get(0);
+                        File sourceFile
+                                = directoryInfos.get(0).getFiles().get(0);
                         if (sourceFile.isDirectory()) {
                             throw new IOException("can not overwrite file \""
                                     + destinationFile + "\" with directory \""
@@ -346,8 +346,8 @@ public class FileCopier {
                 int baseLength = baseDirectory.getPath().length();
                 String filePath = sourceFile.getPath();
                 String destinationPath = filePath.substring(baseLength);
-                destinationFiles[i] =
-                        new File(destinationFile, destinationPath);
+                destinationFiles[i]
+                        = new File(destinationFile, destinationPath);
             } else {
                 destinationFiles[i] = destinationFile;
             }
@@ -393,8 +393,8 @@ public class FileCopier {
         for (File subFile : currentDirectory.listFiles()) {
 
             // check if subfile matches
-            String relativePath =
-                    subFile.getPath().substring(baseDirectoryPathLength);
+            String relativePath
+                    = subFile.getPath().substring(baseDirectoryPathLength);
             if (pattern.matcher(relativePath).matches()) {
                 LOGGER.log(Level.FINE, "{0} matches", subFile);
                 if (subFile.isDirectory()) {
@@ -483,8 +483,8 @@ public class FileCopier {
         sliceStartTime = System.currentTimeMillis();
 
         ExecutorService executorService = Executors.newCachedThreadPool();
-        ExecutorCompletionService<Void> completionService =
-                new ExecutorCompletionService<>(executorService);
+        ExecutorCompletionService<Void> completionService
+                = new ExecutorCompletionService<>(executorService);
         for (Transferrer transferrer : transferrers) {
             completionService.submit(transferrer, null);
         }
@@ -505,6 +505,7 @@ public class FileCopier {
         @Override
         public void run() {
             // inform property listeners about copied data volume
+            position += transferVolume;
             if (LOGGER.isLoggable(Level.FINEST)) {
                 LOGGER.log(Level.FINEST,
                         "new position: {0}", NUMBER_FORMAT.format(position));
@@ -567,7 +568,8 @@ public class FileCopier {
         @Override
         public void run() {
             try {
-                while (position < sourceLength) {
+                long myPosition = 0;
+                while (myPosition < sourceLength) {
                     // transfer the currently planned volume
                     long transferred = 0;
                     while (transferred < transferVolume) {
@@ -580,13 +582,13 @@ public class FileCopier {
                                         NUMBER_FORMAT.format(count)
                                     });
                         }
-                        long tmpTransferred = destinationChannel.transferFrom(
-                                sourceChannel, position, count);
+                        long tmpTransferred = sourceChannel.transferTo(
+                                myPosition, count, destinationChannel);
                         if (LOGGER.isLoggable(Level.FINEST)) {
                             LOGGER.log(Level.FINEST, "{0} byte transferred",
                                     NUMBER_FORMAT.format(tmpTransferred));
                         }
-                        position += tmpTransferred;
+                        myPosition += tmpTransferred;
                         transferred += tmpTransferred;
                     }
                     // wait for all other Transferrers to finish their slice
