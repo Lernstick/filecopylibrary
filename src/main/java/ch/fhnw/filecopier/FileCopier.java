@@ -22,6 +22,7 @@ package ch.fhnw.filecopier;
 
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
+import java.io.Closeable;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -584,7 +585,7 @@ public class FileCopier {
 
         @Override
         public void run() {
-            try (sourceChannel; destinationChannel) {
+            try {
                 long myPosition = 0;
                 while (myPosition < sourceLength) {
                     // transfer the currently planned volume
@@ -615,6 +616,29 @@ public class FileCopier {
             } catch (IOException | InterruptedException
                     | BrokenBarrierException ex) {
                 LOGGER.log(Level.SEVERE, "could not transfer data", ex);
+            } finally {
+                // To be able to continue with the next file as soon as possible
+                // we close the channels via the executorService.
+                executorService.execute(new Closer(sourceChannel));
+                executorService.execute(new Closer(destinationChannel));
+            }
+        }
+    }
+
+    private class Closer extends Thread {
+
+        private final Closeable closeable;
+
+        public Closer(Closeable closeable) {
+            this.closeable = closeable;
+        }
+
+        @Override
+        public void run() {
+            try {
+                closeable.close();
+            } catch (IOException ex) {
+                LOGGER.log(Level.SEVERE, "could not close " + closeable, ex);
             }
         }
     }
