@@ -1,0 +1,16 @@
+- optimization: 
+    - define at source, if it must be scanned or if it is a single file
+    - when source is a directory, do not scan parent directory
+
+- unit tests mit (nicht) existierenden Zielen
+
+- is reset() really necessary? (one synced copy operation is good enough)
+
+- fifos und symlinks testen
+
+- option "overwrite existing files"
+
+- i18n für exceptions in FileCopier
+
+- timer läuft bei exception weiter (z.B. wenn datei aufgrund fehlender
+Berechtigung nicht gelesen werden kann)

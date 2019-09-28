@@ -1,0 +1,103 @@
+<!-- 
+    Document   : index.html
+    Created on : 19.09.2008, 17:49:50
+    Author     : Ronny Standtke <Ronny.Standtke@gmx.net>
+-->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+    <head>
+        <title>Java File Copy Library</title>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <style type="text/css">
+            <!--
+            body {color: #000000; background-color: #ffffff; font-family: Monospaced}
+            table {color: #000000; background-color: #e9e8e2; font-family: Monospaced}
+            .ST0 {color: #969696; font-family: Monospaced; font-weight: bold}
+            .comment {color: #969696}
+            .character {color: #ce7b00}
+            .ST1 {color: #ce7b00; font-family: Monospaced; font-weight: bold}
+            .keyword-directive {color: #0000e6}
+            -->
+        </style>
+    </head>
+    <body>
+        <a href="http://sourceforge.net/projects/filecopylibrary">
+            <img src="http://sflogo.sourceforge.net/sflogo.php?group_id=239252&type=15"
+                 width="150" height="40" border="0"
+                 alt="Get Java File Copy Library at SourceForge.net. Fast, secure and Free Open Source software downloads" /></a>
+        <h1>Java File Copy Library</h1>
+        <p>
+            The Java File Copy Library is a software library that provides an easy
+            and powerful API for file copy operations. You can define a batch of
+            copy jobs with regular expressions and can use a Swing Component to show
+            the overall copy progress.
+        </p>
+        <p>
+            Before starting the copy operation you define the sources with a base directory and a search pattern defined by regular expressions.
+            Then you define the copy destinations (yes, you can copy your files to several destinations at once).
+            With the given sources and destinations you can define a copy job:
+        <pre>
+    Source[] sources = <span class="keyword-directive">new</span> Source[]{
+        <span class="comment">// all files from directory /home/user/source1/</span>
+        <span class="keyword-directive">new</span> Source(<span class="character">&quot;</span><span class="character">/home/user/source1/</span><span class="character">&quot;</span>, <span class="character">&quot;</span><span class="character">.*</span><span class="character">&quot;</span>),
+        <span class="comment">// all *.java files from directory /home/user/source2/</span>
+        <span class="keyword-directive">new</span> Source(<span class="character">&quot;</span><span class="character">/home/user/source2/</span><span class="character">&quot;</span>, <span class="character">&quot;</span><span class="character">.*</span><span class="ST1">\\</span><span class="character">.java</span><span class="character">&quot;</span>)
+    };
+    String[] destinations = <span class="keyword-directive">new</span> String[]{
+        <span class="character">&quot;</span><span class="character">/home/user/destination1</span><span class="character">&quot;</span>,
+        <span class="character">&quot;</span><span class="character">/home/user/destination2</span><span class="character">&quot;</span>
+    };
+    CopyJob copyJob = <span class="keyword-directive">new</span> CopyJob(sources, destinations);
+        </pre>
+        <p>
+            If you are done with defining your copy jobs you can let them
+            execute by a FileCopier instance all at once.
+        <pre>
+    fileCopier.copy(copyJob1, copyJob2);
+        </pre>
+        This function uses
+        <a href="http://java.sun.com/j2se/1.5.0/docs/guide/language/varargs.html">
+            Varargs
+        </a>
+        for the parameters. This way you can throw as many copy jobs at a
+        FileCopier at once as you want.
+
+        <p>
+            If you want to see the progress of your copy operation in a GUI
+            application, you can add a FileCopierPanel to your GUI application
+            and give it a reference to your current FileCopier:
+        <pre>
+    FileCopier fileCopier = <span class="keyword-directive">new</span> FileCopier();
+    fileCopierPanel.setFileCopier(fileCopier);
+        </pre>
+        In GUI applications you should use a
+        <a href="http://java.sun.com/docs/books/tutorial/uiswing/concurrency/worker.html">
+            SwingWorker
+        </a>
+        to execute the fileCopier.copy() operation.
+
+        <p>
+            The Java File Copy Library Swing Component shows the following
+            information per default:
+        <ul>
+            <li>the already copied amount of data</li>
+            <li>the data volume of all specified copy jobs</li>
+            <li>the speed of the copy operation</li>
+            <li>the progress of the copy operation (both graphical and numerical)</li>
+            <li>the elapsed time</li>
+            <li>the estimated total time</li>
+            <li>the estimated remaining time</li>
+            <li>the estimated completion time</li>
+        </ul>
+
+        <p>
+            Simple example: <img src="animation.gif" width="408" height="100"
+                                 align="middle" alt="Java File Copy Library Swing Component"/>
+        </p>
+        <p>
+            For Downloads, Bug Tracking, etc. please see the
+            <a href="http://sourceforge.net/projects/filecopylibrary/">
+                SourceForge Project for Java File Copy Library</a>
+        </p>
+    </body>
+</html>

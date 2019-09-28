@@ -1,0 +1,20 @@
+2011-01-01
+    - RELEASE 0.9.7
+    - NEW: improved FileCopierPanel
+
+2010-06-01
+    - RELEASE 0.9.6
+    - FIX: fixed bandwith/slice calculation
+    - FIX: fixed copy/reset handling
+
+2010-04-30
+    - FIX: do not allow slice size to drop to zero
+
+2010-04-07
+    - NEW: added Turkish and Albanian translation
+
+2010-01-07
+    - NEW: moved "recursive" property from copyjob to source
+    - FIX: shutdown executor service after completing all copyjobs
+           (do no longer prevent application exit because of running non-daemon
+            threads)

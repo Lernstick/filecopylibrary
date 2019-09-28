@@ -1,0 +1,15 @@
+plugins {
+	id 'java'
+}
+
+dependencies {
+	compile files(
+		'/usr/share/java/junit4.jar',
+	)
+}
+
+task sortStrings(type:Exec) {
+	group = 'Tools'
+	description = 'Sorts the strings in the properties files.'
+	commandLine 'sh', 'sort_strings.sh'
+}
