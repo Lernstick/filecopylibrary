@@ -30,9 +30,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.text.NumberFormat;
@@ -116,6 +113,7 @@ public class FileCopier {
     private final BarrierAction barrierAction;
     private CyclicBarrier barrier;
 
+    private final static String DIGEST_ALGORITHM = "MD5";
     private HashMap<String, byte[]> digestCache;
 
     /**
@@ -525,7 +523,7 @@ public class FileCopier {
         MessageDigest messageDigest = null;
         if (checkCopies && (digestCache == null
                 || !digestCache.containsKey(source.getPath()))) {
-            messageDigest = MessageDigest.getInstance("MD5");
+            messageDigest = MessageDigest.getInstance(DIGEST_ALGORITHM);
         }
 
         // create a Transferrer thread for every destination
@@ -589,9 +587,12 @@ public class FileCopier {
     private void checkCopy(byte[] exptectedDigest, File copy)
             throws IOException, NoSuchAlgorithmException {
 
-        MessageDigest messageDigest = MessageDigest.getInstance("MD5");
+        LOGGER.log(Level.INFO, "getting checksum of {0}", copy);
+                
+        MessageDigest messageDigest
+                = MessageDigest.getInstance(DIGEST_ALGORITHM);
         try (InputStream inputStream = new FileInputStream(copy)) {
-            byte[] buffer = new byte[8192];
+            byte[] buffer = new byte[1024 * 1024];
             for (int i = inputStream.read(buffer); i >= 0;) {
                 messageDigest.update(buffer, 0, i);
                 i = inputStream.read(buffer);
