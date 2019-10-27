@@ -1,5 +1,5 @@
 /*
- * Dir2FileTest.java
+ * FileCopierTest.java
  *
  * Created on 22. April 2008, 14:21
  *
@@ -21,8 +21,10 @@
 package ch.fhnw.filecopier;
 
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
+import java.util.HashMap;
 import org.junit.Before;
 import org.junit.Test;
 import static org.junit.Assert.*;
@@ -32,7 +34,7 @@ import static org.junit.Assert.*;
  *
  * @author Ronny Standtke <Ronny.Standtke@gmx.net>
  */
-public class Dir2FileTest {
+public class CopySingleFileWithCheckAndCacheTest {
 
     private final File tmpDir = new File(System.getProperty("java.io.tmpdir")
             + File.separatorChar + "filecopiertest");
@@ -45,8 +47,11 @@ public class Dir2FileTest {
      */
     @Before
     public void setUp() {
+
+        HashMap<String, byte[]> digestCache = new HashMap<>();
+
         // create a copier instance
-        fileCopier = new FileCopier();
+        fileCopier = new FileCopier(digestCache);
 
         // create all test directories
         sourceDir = new File(tmpDir, "testSourceDir");
@@ -60,44 +65,66 @@ public class Dir2FileTest {
     }
 
     /**
-     * test, if we correctly handle the situation of copying an empty directory
-     * to an existing file (do nothing, print warning)
+     * test, if we correctly copy a single file to a target directory
      *
-     * @throws IOException if an I/O exception occurs
+     * @throws Exception if an exception occurs
      */
     @Test
-    public void testDir2File() throws IOException, NoSuchAlgorithmException {
+    public void testCopyingSingleFile() throws Exception {
+        // should work identically in both the recursive and non-recursive case
+        testSingleFile(true/*recursive*/);
+        setUp();
+        testSingleFile(false/*recursive*/);
+    }
 
-        File destinationFile = null;
+    private void testSingleFile(boolean recursive)
+            throws IOException, NoSuchAlgorithmException {
+
+        File singleFile = null;
+        File expected = null;
         try {
-            destinationFile = new File(destinationDir, "destinationFile");
-            if (!destinationFile.createNewFile()) {
-                fail("could not create test file " + destinationFile);
-            }
+            // create a single file
+            singleFile = new File(sourceDir, "singleFile");
             try {
-                // try copying the test file
-                CopyJob copyJob = new CopyJob(
-                        new Source[]{new Source(sourceDir.getPath())},
-                        new String[]{destinationFile.getPath()});
-                fileCopier.copy(copyJob);
-                fail("this test must throw an exception");
+                if (!singleFile.createNewFile()) {
+                    fail("could not create test file " + singleFile);
+                }
+                try (FileWriter writer = new FileWriter(singleFile)) {
+                    writer.write("test");
+                }
             } catch (IOException ex) {
-                ex.printStackTrace();
-                // yes, we want an exception here!
+                System.out.println("Could not create " + singleFile);
+                throw ex;
             }
+
+            // try copying the test file
+            Source[] sources = new Source[]{
+                new Source(singleFile.getParent(), singleFile.getName(), recursive)
+            };
+            String[] destinations = new String[]{
+                destinationDir.getPath()
+            };
+            CopyJob copyJob = new CopyJob(sources, destinations);
+            fileCopier.copy(true, copyJob);
+            fileCopier.copy(true, copyJob);
 
             // check
-            destinationFile = new File(destinationDir, "destinationFile");
-            assertTrue("destination was not created", destinationFile.exists());
-            assertTrue("destination is no file", destinationFile.isFile());
+            expected = new File(destinationDir, singleFile.getName());
+            assertTrue("destination was not created", expected.exists());
+            assertTrue("destination is no file", expected.isFile());
 
         } finally {
+            // cleanup
+            if ((singleFile != null)
+                    && singleFile.exists() && !singleFile.delete()) {
+                fail("could not delete source file " + singleFile);
+            }
             if (!sourceDir.delete()) {
                 fail("could not delete source dir " + sourceDir);
             }
-            if ((destinationFile != null)
-                    && destinationFile.exists() && !destinationFile.delete()) {
-                fail("could not delete destination file " + destinationFile);
+            if ((expected != null)
+                    && expected.exists() && !expected.delete()) {
+                fail("could not delete destination file " + expected);
             }
             if (!destinationDir.delete()) {
                 fail("could not delete destination dir " + destinationDir);

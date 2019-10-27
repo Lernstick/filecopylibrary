@@ -18,23 +18,24 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
 package ch.fhnw.filecopier;
 
 import java.io.File;
 import java.io.IOException;
+import java.security.NoSuchAlgorithmException;
 import org.junit.Before;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
 /**
  * Some tests for the file copier
+ *
  * @author Ronny Standtke <Ronny.Standtke@gmx.net>
  */
 public class Dir2DirTest {
 
-    private final File tmpDir = new File(System.getProperty("java.io.tmpdir") +
-            File.separatorChar + "filecopiertest");
+    private final File tmpDir = new File(System.getProperty("java.io.tmpdir")
+            + File.separatorChar + "filecopiertest");
     private FileCopier fileCopier;
     private File sourceDir;
     private File destinationDir;
@@ -59,12 +60,13 @@ public class Dir2DirTest {
     }
 
     /**
-     * test, if we correctly handle the situation of copying a full directory
-     * to an existing directory
+     * test, if we correctly handle the situation of copying a full directory to
+     * an existing directory
+     *
      * @throws IOException if an I/O exception occurs
      */
     @Test
-    public void testFullDir2Dir() throws IOException {
+    public void testFullDir2Dir() throws IOException, NoSuchAlgorithmException {
 
         File testFile = null;
         File expectedDir = null;
@@ -108,12 +110,12 @@ public class Dir2DirTest {
             if (!sourceDir.delete()) {
                 fail("could not delete source dir " + sourceDir);
             }
-            if ((expectedFile != null) &&
-                    expectedFile.exists() && !expectedFile.delete()) {
+            if ((expectedFile != null)
+                    && expectedFile.exists() && !expectedFile.delete()) {
                 fail("could not delete destination file " + expectedFile);
             }
-            if ((expectedDir != null) &&
-                    expectedDir.exists() && !expectedDir.delete()) {
+            if ((expectedDir != null)
+                    && expectedDir.exists() && !expectedDir.delete()) {
                 fail("could not delete destination dir " + expectedDir);
             }
             if (!destinationDir.delete()) {

@@ -4,17 +4,17 @@
  * Created on 19.09.2008, 15:37:49
  *
  * This file is part of the Java File Copy Library.
- * 
+ *
  * The Java File Copy Libraryis free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation; either version 3 of the License,
  * or (at your option) any later version.
- * 
+ *
  * The Java File Copy Libraryis distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
@@ -27,9 +27,18 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.DigestInputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.text.NumberFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
@@ -107,14 +116,26 @@ public class FileCopier {
     private final BarrierAction barrierAction;
     private CyclicBarrier barrier;
 
+    private HashMap<String, byte[]> digestCache;
+
     /**
      * creates a new FileCopier
+     *
+     * @param digestCache a cache for digests when checking copies
      */
-    public FileCopier() {
+    public FileCopier(HashMap<String, byte[]> digestCache) {
+        this.digestCache = digestCache;
         this.executorService = Executors.newCachedThreadPool();
         this.completionService
                 = new ExecutorCompletionService<>(executorService);
         this.barrierAction = new BarrierAction();
+    }
+
+    /**
+     * creates a new FileCopier
+     */
+    public FileCopier() {
+        this(null);
     }
 
     /**
@@ -174,8 +195,27 @@ public class FileCopier {
      *
      * @param copyJobs all copyjobs to execute
      * @throws java.io.IOException if an I/O exception occurs
+     * @throws java.security.NoSuchAlgorithmException if the file checking
+     * algorithm is not found
      */
-    public void copy(CopyJob... copyJobs) throws IOException {
+    public void copy(CopyJob... copyJobs)
+            throws IOException, NoSuchAlgorithmException {
+
+        copy(false, copyJobs);
+    }
+
+    /**
+     * copies source files to a given destination
+     *
+     * @param checkCopies if the copies should be checked for errors
+     * @param copyJobs all copyjobs to execute
+     * @throws java.io.IOException if an I/O exception occurs
+     * @throws java.security.NoSuchAlgorithmException if the file checking
+     * algorithm is not found
+     */
+    public void copy(boolean checkCopies, CopyJob... copyJobs)
+            throws IOException, NoSuchAlgorithmException {
+
         byteCount = 0;
         copiedBytes = 0;
 
@@ -331,7 +371,7 @@ public class FileCopier {
                         }
                     } else {
                         // create target files in parrallel
-                        copyFile(sourceFile, destinationFiles);
+                        copyFile(checkCopies, sourceFile, destinationFiles);
                     }
                 }
             }
@@ -439,8 +479,9 @@ public class FileCopier {
         return new DirectoryInfo(currentDirectory, files, tmpByteCount);
     }
 
-    private void copyFile(File source, File... destinations)
-            throws IOException {
+    private void copyFile(boolean checkCopies,
+            File source, File... destinations)
+            throws IOException, NoSuchAlgorithmException {
 
         // some initial logging
         if (LOGGER.isLoggable(Level.INFO)) {
@@ -481,12 +522,19 @@ public class FileCopier {
             return;
         }
 
+        MessageDigest messageDigest = null;
+        if (checkCopies && (digestCache == null
+                || !digestCache.containsKey(source.getPath()))) {
+            messageDigest = MessageDigest.getInstance("MD5");
+        }
+
         // create a Transferrer thread for every destination
         final Transferrer[] transferrers = new Transferrer[destinationCount];
         for (int i = 0; i < destinationCount; i++) {
             transferrers[i] = new Transferrer(
                     new FileInputStream(source).getChannel(),
-                    new FileOutputStream(destinations[i]).getChannel());
+                    new FileOutputStream(destinations[i]).getChannel(),
+                    messageDigest);
         }
 
         barrier = new CyclicBarrier(destinationCount, barrierAction);
@@ -516,6 +564,58 @@ public class FileCopier {
                 LOGGER.log(Level.SEVERE, null, ex);
             }
         }
+
+        if (checkCopies) {
+
+            byte[] expectedDigest;
+            if (messageDigest == null) {
+                LOGGER.log(Level.FINE,
+                        "taking {0} from digest cache", source.getPath());
+                expectedDigest = digestCache.get(source.getPath());
+            } else {
+                expectedDigest = messageDigest.digest();
+                if (digestCache != null) {
+                    LOGGER.log(Level.FINE,
+                            "adding {0} to digest cache", source.getPath());
+                    digestCache.put(source.getPath(), expectedDigest);
+                }
+            }
+            for (File destination : destinations) {
+                checkCopy(expectedDigest, destination);
+            }
+        }
+    }
+
+    private void checkCopy(byte[] exptectedDigest, File copy)
+            throws IOException, NoSuchAlgorithmException {
+
+        MessageDigest messageDigest = MessageDigest.getInstance("MD5");
+        try (InputStream inputStream = new FileInputStream(copy)) {
+            byte[] buffer = new byte[8192];
+            for (int i = inputStream.read(buffer); i >= 0;) {
+                messageDigest.update(buffer, 0, i);
+                i = inputStream.read(buffer);
+            }
+        }
+
+        byte[] digest = messageDigest.digest();
+        if (Arrays.equals(exptectedDigest, digest)) {
+            LOGGER.log(Level.INFO, "{0} has correct checksum {1}",
+                    new Object[]{copy, getHexString(digest)});
+        } else {
+            throw new IOException(copy
+                    + " was not correctly copied (expected checksum: "
+                    + getHexString(exptectedDigest)
+                    + ", actual checksum: " + getHexString(digest));
+        }
+    }
+
+    private String getHexString(byte[] bytes) {
+        StringBuilder stringBuilder = new StringBuilder(32);
+        for (byte b : bytes) {
+            stringBuilder.append(String.format("%02x", b));
+        }
+        return stringBuilder.toString();
     }
 
     private class BarrierAction implements Runnable {
@@ -576,21 +676,31 @@ public class FileCopier {
 
         private final FileChannel sourceChannel;
         private final FileChannel destinationChannel;
+        private final MessageDigest messageDigest;
 
-        public Transferrer(
-                FileChannel sourceChannel, FileChannel destinationChannel) {
+        public Transferrer(FileChannel sourceChannel,
+                FileChannel destinationChannel, MessageDigest messageDigest)
+                throws NoSuchAlgorithmException {
+
             this.sourceChannel = sourceChannel;
             this.destinationChannel = destinationChannel;
+            this.messageDigest = messageDigest;
         }
 
         @Override
         public void run() {
+
             try {
+
+                // loop over the whole file
+                ByteBuffer byteBuffer = null;
                 long myPosition = 0;
                 while (myPosition < sourceLength) {
+
                     // transfer the currently planned volume
                     long transferred = 0;
                     while (transferred < transferVolume) {
+
                         long count = transferVolume - transferred;
                         if (LOGGER.isLoggable(Level.FINEST)) {
                             LOGGER.log(Level.FINEST, "already transferred = "
@@ -600,15 +710,51 @@ public class FileCopier {
                                         NUMBER_FORMAT.format(count)
                                     });
                         }
-                        long tmpTransferred = sourceChannel.transferTo(
-                                myPosition, count, destinationChannel);
+
+                        long tmpTransferred = 0;
+
+                        if (messageDigest == null) {
+                            // no digest needed, direct transfer possible
+                            tmpTransferred = sourceChannel.transferTo(
+                                    myPosition, count, destinationChannel);
+
+                        } else {
+                            // digest needed, no direct transfer possible
+                            if (byteBuffer == null
+                                    || byteBuffer.capacity() < count) {
+                                byteBuffer = ByteBuffer.allocate((int) count);
+                            } else {
+                                byteBuffer.clear();
+                            }
+
+                            // read from source
+                            tmpTransferred = sourceChannel.read(byteBuffer);
+                            byteBuffer.flip();
+
+                            // digest read bytes
+                            int limit = byteBuffer.limit();
+                            messageDigest.update(byteBuffer);
+
+                            // reset byteBuffer
+                            byteBuffer.position(0);
+                            byteBuffer.limit(limit);
+
+                            // write to destination
+                            while (byteBuffer.hasRemaining()) {
+                                destinationChannel.write(byteBuffer);
+                            }
+
+                        }
+
                         if (LOGGER.isLoggable(Level.FINEST)) {
                             LOGGER.log(Level.FINEST, "{0} byte transferred",
                                     NUMBER_FORMAT.format(tmpTransferred));
                         }
+
                         myPosition += tmpTransferred;
                         transferred += tmpTransferred;
                     }
+
                     // wait for all other Transferrers to finish their slice
                     barrier.await();
                 }
@@ -616,6 +762,7 @@ public class FileCopier {
             } catch (IOException | InterruptedException
                     | BrokenBarrierException ex) {
                 LOGGER.log(Level.SEVERE, "could not transfer data", ex);
+
             } finally {
                 // To be able to continue with the next file as soon as possible
                 // we close the channels via the executorService.

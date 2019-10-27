@@ -1,21 +1,28 @@
 plugins {
-	id 'java'
+    id 'java'
+}
+
+test {
+    testLogging {
+        outputs.upToDateWhen {false}
+        showStandardStreams = true
+    }
 }
 
 dependencies {
-	compile files(
+    compile files(
 		'/usr/share/java/junit4.jar',
-	)
+    )
 }
 
 task sortStrings(type:Exec) {
-	group = 'Tools'
-	description = 'Sorts the strings in the properties files.'
-	commandLine 'sh', 'sort_strings.sh'
+    group = 'Tools'
+    description = 'Sorts the strings in the properties files.'
+    commandLine 'sh', 'sort_strings.sh'
 }
 
 task checkStrings(type:Exec) {
-	group = 'Tools'
-	description = 'Checks the strings in the properties files.'
-	commandLine 'sh', 'check_strings.sh'
+    group = 'Tools'
+    description = 'Checks the strings in the properties files.'
+    commandLine 'sh', 'check_strings.sh'
 }
