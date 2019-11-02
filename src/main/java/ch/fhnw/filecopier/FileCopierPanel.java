@@ -23,10 +23,10 @@ package ch.fhnw.filecopier;
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.text.DateFormat;
+import java.text.MessageFormat;
 import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -52,24 +52,21 @@ public class FileCopierPanel extends JPanel implements PropertyChangeListener {
     public static final int HOUR = 3600000;
     public final static NumberFormat numberFormat = NumberFormat.getInstance();
 
-    private static final ResourceBundle strings
+    private static final ResourceBundle STRINGS
             = ResourceBundle.getBundle("ch/fhnw/filecopier/Strings");
     // the sum of the size of all files to copy
     private long byteCount;
     // the number of bytes already copied
     private long bytesCopied;
     private FileCopier fileCopier;
-    private DateFormat timeFormat;
-    private DateFormat dateFormat;
-    private DateFormat minuteFormat;
+    private final DateFormat timeFormat;
+    private final DateFormat dateFormat;
+    private final DateFormat minuteFormat;
     // remaining time calcuation
     private long startTime;
-    private Timer updateTimer = new Timer(1000, new ActionListener() {
-        @Override
-        public void actionPerformed(ActionEvent e) {
-            update();
-        }
-    });
+    private final Timer updateTimer = new Timer(
+            1000, (ActionEvent e) -> update()
+    );
 
     /**
      * Creates new form FileCopierPanel
@@ -167,7 +164,7 @@ public class FileCopierPanel extends JPanel implements PropertyChangeListener {
 
                         case CHECKING_SOURCE:
                             progressBar.setIndeterminate(true);
-                            progressBar.setString(strings.getString(
+                            progressBar.setString(STRINGS.getString(
                                     "Checking_Source_Directory"));
                             break;
 
@@ -196,19 +193,26 @@ public class FileCopierPanel extends JPanel implements PropertyChangeListener {
                             estimatedDurationLabel.setFont(defaultLabelFont);
                             estimatedDurationLabel.setForeground(Color.BLACK);
                             estimatedStopTimeLabel.setFont(defaultLabelFont);
-                            progressBar.setString(strings.getString("Done"));
+                            progressBar.setString(STRINGS.getString("Done"));
                             estimatedStopTimeLabel.setForeground(Color.BLACK);
                     }
 
                 } else if (FileCopier.BYTE_COUNTER_PROPERTY.equals(
                         propertyName)) {
-                    bytesCopied = ((Long) evt.getNewValue()).longValue();
+                    bytesCopied = (Long) evt.getNewValue();
                     updateProgressBar();
                 }
             }
         });
     }
 
+    /**
+     * returns a human readably data volume string
+     *
+     * @param bytes the bytes of the data volume
+     * @param fractionDigits the number of fraction digits
+     * @return a human readably data volume string
+     */
     public static String getDataVolumeString(long bytes, int fractionDigits) {
         if (bytes >= KILO) {
             numberFormat.setMaximumFractionDigits(fractionDigits);
@@ -240,6 +244,7 @@ public class FileCopierPanel extends JPanel implements PropertyChangeListener {
     private void initComponents() {
         java.awt.GridBagConstraints gridBagConstraints;
 
+        statusLabel = new javax.swing.JLabel();
         topPanel = new javax.swing.JPanel();
         leftPanel = new javax.swing.JPanel();
         passedTimeLabel = new javax.swing.JLabel();
@@ -257,12 +262,19 @@ public class FileCopierPanel extends JPanel implements PropertyChangeListener {
 
         setLayout(new java.awt.GridBagLayout());
 
-        topPanel.setLayout(new java.awt.GridLayout());
+        statusLabel.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        java.util.ResourceBundle bundle = java.util.ResourceBundle.getBundle("ch/fhnw/filecopier/Strings"); // NOI18N
+        statusLabel.setText(bundle.getString("FileCopierPanel.statusLabel.text")); // NOI18N
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridwidth = java.awt.GridBagConstraints.REMAINDER;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        add(statusLabel, gridBagConstraints);
+
+        topPanel.setLayout(new java.awt.GridLayout(1, 0));
 
         leftPanel.setLayout(new java.awt.GridBagLayout());
 
         passedTimeLabel.setText("0:00"); // NOI18N
-        java.util.ResourceBundle bundle = java.util.ResourceBundle.getBundle("ch/fhnw/filecopier/Strings"); // NOI18N
         passedTimeLabel.setToolTipText(bundle.getString("FileCopierPanel.passedTimeLabel.toolTipText")); // NOI18N
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridwidth = java.awt.GridBagConstraints.REMAINDER;
@@ -308,7 +320,7 @@ public class FileCopierPanel extends JPanel implements PropertyChangeListener {
         gridBagConstraints.anchor = java.awt.GridBagConstraints.EAST;
         rightPanel.add(estimatedRemainingTimeLabel, gridBagConstraints);
 
-        missingDataVolumeLabel.setHorizontalAlignment(4);
+        missingDataVolumeLabel.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
         missingDataVolumeLabel.setText("0 Byte"); // NOI18N
         missingDataVolumeLabel.setToolTipText(bundle.getString("FileCopierPanel.missingDataVolumeLabel.toolTipText")); // NOI18N
         gridBagConstraints = new java.awt.GridBagConstraints();
@@ -321,6 +333,7 @@ public class FileCopierPanel extends JPanel implements PropertyChangeListener {
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridwidth = java.awt.GridBagConstraints.REMAINDER;
         gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        gridBagConstraints.insets = new java.awt.Insets(3, 0, 0, 0);
         add(topPanel, gridBagConstraints);
 
         progressBar.setStringPainted(true);
@@ -370,6 +383,7 @@ public class FileCopierPanel extends JPanel implements PropertyChangeListener {
     private javax.swing.JProgressBar progressBar;
     private javax.swing.JPanel rightPanel;
     private javax.swing.JLabel startTimeLabel;
+    private javax.swing.JLabel statusLabel;
     private javax.swing.JPanel topPanel;
     private ch.fhnw.filecopier.ChangeLabel transferredDataVolumeLabel;
     // End of variables declaration//GEN-END:variables
@@ -379,6 +393,15 @@ public class FileCopierPanel extends JPanel implements PropertyChangeListener {
         if (bytesCopied == 0) {
             return;
         }
+
+        CurrentlyProcessedFile currentlyProcessedFile
+                = fileCopier.getCurrentlyProcessedFile();
+        String status = STRINGS.getString(
+                currentlyProcessedFile.STATE
+                == CurrentlyProcessedFile.State.COPYING
+                        ? "Copying" : "Checking");
+        statusLabel.setText(MessageFormat.format(
+                status, currentlyProcessedFile.NAME));
 
         long currentTime = System.currentTimeMillis();
         long timeSpent = currentTime - startTime;

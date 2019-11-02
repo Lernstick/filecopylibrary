@@ -116,6 +116,8 @@ public class FileCopier {
     private final static String DIGEST_ALGORITHM = "MD5";
     private HashMap<String, byte[]> digestCache;
 
+    private CurrentlyProcessedFile currentlyProcessedFile;
+
     /**
      * creates a new FileCopier
      *
@@ -176,6 +178,15 @@ public class FileCopier {
      */
     public long getCopiedBytes() {
         return copiedBytes;
+    }
+
+    /**
+     * returns the currently processed file
+     *
+     * @return the currently processed file
+     */
+    public CurrentlyProcessedFile getCurrentlyProcessedFile() {
+        return currentlyProcessedFile;
     }
 
     /**
@@ -481,6 +492,9 @@ public class FileCopier {
             File source, File... destinations)
             throws IOException, NoSuchAlgorithmException {
 
+        currentlyProcessedFile = new CurrentlyProcessedFile(
+                source.getAbsolutePath());
+
         // some initial logging
         if (LOGGER.isLoggable(Level.INFO)) {
             StringBuilder stringBuilder = new StringBuilder();
@@ -530,6 +544,7 @@ public class FileCopier {
         final Transferrer[] transferrers = new Transferrer[destinationCount];
         for (int i = 0; i < destinationCount; i++) {
             transferrers[i] = new Transferrer(
+                    source.getAbsolutePath(),
                     new FileInputStream(source).getChannel(),
                     new FileOutputStream(destinations[i]).getChannel(),
                     messageDigest);
@@ -586,9 +601,25 @@ public class FileCopier {
 
     private void checkCopy(byte[] exptectedDigest, File copy)
             throws IOException, NoSuchAlgorithmException {
+        
+        currentlyProcessedFile.setChecking();
+
+        // empty all OS caches for the file so that checking the copy means
+        // reading it completely of the target media instead of memory caches
+        if (System.getProperty("os.name").equals("Linux")) {
+            String path = copy.getAbsolutePath();
+            ProcessExecutor executor = new ProcessExecutor(true);
+            // write all "dirty" pages of the file to the storage media
+            executor.executeProcess(true, true, "sync", path);
+            // clear the file's page cache, see "nocache" description here:
+            // https://www.gnu.org/software/coreutils/manual/html_node/dd-invocation.html#dd-invocation
+            executor.executeProcess(true, true, "dd", "of=" + path,
+                    "oflag=nocache", "conv=notrunc,fdatasync", "count=0"
+            );
+        }
 
         LOGGER.log(Level.INFO, "getting checksum of {0}", copy);
-                
+
         MessageDigest messageDigest
                 = MessageDigest.getInstance(DIGEST_ALGORITHM);
         try (InputStream inputStream = new FileInputStream(copy)) {
@@ -651,7 +682,7 @@ public class FileCopier {
                 // just using newSlice here leads to overmodulation
                 // doubling or halving is the slower (and probably better)
                 // approach
-                long doubleSlice = 2 * slice;
+                long doubleSlice = slice * 2;
                 long halfSlice = slice / 2;
                 if (newSlice > doubleSlice) {
                     slice = doubleSlice;
@@ -675,14 +706,16 @@ public class FileCopier {
 
     private class Transferrer extends Thread {
 
+        private final String sourceName;
         private final FileChannel sourceChannel;
         private final FileChannel destinationChannel;
         private final MessageDigest messageDigest;
 
-        public Transferrer(FileChannel sourceChannel,
+        public Transferrer(String sourceName, FileChannel sourceChannel,
                 FileChannel destinationChannel, MessageDigest messageDigest)
                 throws NoSuchAlgorithmException {
 
+            this.sourceName = sourceName;
             this.sourceChannel = sourceChannel;
             this.destinationChannel = destinationChannel;
             this.messageDigest = messageDigest;
@@ -704,9 +737,12 @@ public class FileCopier {
 
                         long count = transferVolume - transferred;
                         if (LOGGER.isLoggable(Level.FINEST)) {
-                            LOGGER.log(Level.FINEST, "already transferred = "
-                                    + "{0} byte, to be transferred = {1} byte",
+                            LOGGER.log(Level.FINEST, "{0}: position = {1}, "
+                                    + "already transferred = {2} byte, "
+                                    + "to be transferred = {3} byte",
                                     new Object[]{
+                                        sourceName,
+                                        NUMBER_FORMAT.format(myPosition),
                                         NUMBER_FORMAT.format(transferred),
                                         NUMBER_FORMAT.format(count)
                                     });
@@ -726,6 +762,7 @@ public class FileCopier {
                                 byteBuffer = ByteBuffer.allocate((int) count);
                             } else {
                                 byteBuffer.clear();
+                                byteBuffer.limit((int) count);
                             }
 
                             // read from source
@@ -748,8 +785,12 @@ public class FileCopier {
                         }
 
                         if (LOGGER.isLoggable(Level.FINEST)) {
-                            LOGGER.log(Level.FINEST, "{0} byte transferred",
-                                    NUMBER_FORMAT.format(tmpTransferred));
+                            LOGGER.log(Level.FINEST,
+                                    "{0}: {1} bytes transferred",
+                                    new Object[]{
+                                        sourceName,
+                                        NUMBER_FORMAT.format(tmpTransferred)}
+                            );
                         }
 
                         myPosition += tmpTransferred;
